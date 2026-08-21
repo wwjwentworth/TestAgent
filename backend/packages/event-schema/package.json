@@ -1,0 +1,14 @@
+{
+  "name": "@bug-agent/event-schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs"
+    }
+  },
+  "types": "./src/index.d.ts",
+  "scripts": { "build": "node ../../../scripts/validate-files.mjs backend/packages/event-schema src/index.mjs" }
+}

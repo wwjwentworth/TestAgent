@@ -1,0 +1,16 @@
+@import '../../styles/tokens.less';
+
+.sidebar { position: sticky; top: 0; height: 100vh; padding: 24px 16px; background: @bg-sidebar; border-right: 1px solid #1d293d; display: flex; flex-direction: column; }
+.brand { display: flex; gap: 12px; align-items: center; padding: 0 8px 24px; color: inherit; text-decoration: none;
+  .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; color: white; background: linear-gradient(135deg, #537cf6, #6e4be8); font-size: 12px; font-weight: 800; }
+  strong, small { display: block; }
+  small { margin-top: 3px; color: #7f8ba3; font-size: 11px; }
+}
+.nav-label { margin: 22px 10px 8px; color: #68758e; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+nav a { display: block; padding: 10px 12px; margin: 3px 0; border-radius: 8px; color: #9ba8bf; text-decoration: none; font-size: 14px;
+  &:hover, &.active { background: @bg-active; color: white; }
+}
+.sidebar-foot { margin-top: auto; padding: 12px 10px; color: #77849c; font-size: 12px; }
+.status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: @success; box-shadow: 0 0 10px @success; }
+
+@media (max-width: 720px) { .sidebar { display: none; position: fixed; z-index: 10; width: @sidebar-width; &.open { display: flex; } } }

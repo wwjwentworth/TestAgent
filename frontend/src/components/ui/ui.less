@@ -1,0 +1,14 @@
+@import '../../styles/tokens.less';
+
+.primary { padding: 9px 14px; border: 0; border-radius: 8px; color: white; background: @primary; }
+.card { padding: 20px; border: 1px solid @border; border-radius: @radius; background: @bg-card; box-shadow: 0 12px 35px rgba(0,0,0,.12);
+  h2 { margin: 0 0 18px; font-size: 16px; }
+}
+.empty { min-height: 220px; display: grid; place-items: center; text-align: center; color: #68758d; border: 1px dashed #27354c; border-radius: 10px;
+  strong { display: block; margin-bottom: 7px; color: #aeb9cb; }
+}
+.module-list { display: grid; gap: 10px; }
+.module { display: flex; justify-content: space-between; align-items: center; padding: 13px; border: 1px solid #202d44; border-radius: 9px;
+  small { display: block; margin-top: 3px; color: #69768d; }
+}
+.badge { padding: 4px 8px; border-radius: 999px; color: @warning; background: fade(@warning, 10%); font-size: 11px; }

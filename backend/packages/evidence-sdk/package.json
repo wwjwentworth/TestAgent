@@ -1,0 +1,8 @@
+{
+  "name": "@bug-agent/evidence-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.mjs",
+  "scripts": { "build": "node ../../../scripts/validate-files.mjs backend/packages/evidence-sdk src/index.mjs" }
+}

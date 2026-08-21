@@ -1,0 +1,18 @@
+@import '../styles/tokens.less';
+
+.shell { min-height: 100vh; display: grid; grid-template-columns: @sidebar-width 1fr; }
+.workspace { min-width: 0; }
+.topbar { height: @topbar-height; padding: 0 28px; border-bottom: 1px solid #1d293d; display: flex; align-items: center; justify-content: space-between; background: fade(@bg-page, 82%); backdrop-filter: blur(14px); }
+.crumb { color: #637087; }
+.top-actions { display: flex; align-items: center; gap: 12px; }
+.environment { padding: 6px 9px; border: 1px solid #27354e; border-radius: 7px; color: #91a0b9; font-size: 12px; }
+.menu-button { display: none; border: 0; background: transparent; color: white; font-size: 20px; }
+main { max-width: 1480px; margin: auto; padding: 32px; }
+
+@media (max-width: 720px) {
+  .shell { grid-template-columns: 1fr; }
+  .menu-button { display: inline-block; }
+  .topbar { padding: 0 16px; }
+  .crumb, .environment { display: none; }
+  main { padding: 22px 16px; }
+}

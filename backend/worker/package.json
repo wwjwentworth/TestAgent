@@ -1,0 +1,11 @@
+{
+  "name": "@bug-agent/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/worker.mjs",
+    "start": "node src/worker.mjs",
+    "build": "node ../../scripts/validate-files.mjs backend/worker src/worker.mjs"
+  }
+}

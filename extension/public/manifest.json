@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Bug Reproduction Agent",
+  "description": "采集 Bug 现场并发送至自动化测试 Agent",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "action": { "default_popup": "popup.html" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["activeTab", "storage", "tabCapture", "debugger", "offscreen", "downloads"],
+  "host_permissions": ["http://localhost:3001/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [{ "matches": ["http://*/*", "https://*/*"], "js": ["content.js"], "run_at": "document_idle" }]
+}

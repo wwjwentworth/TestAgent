@@ -1,0 +1,17 @@
+@import '../styles/tokens.less';
+
+.page-heading { margin-bottom: 26px; h1 { margin: 0 0 8px; font-size: 28px; } p { margin: 0; color: @text-muted; } }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.metric-label { color: #8592a9; font-size: 13px; }
+.metric-value { margin: 14px 0 4px; font-size: 30px; font-weight: 700; }
+.metric-note { color: #59677f; font-size: 12px; }
+.grid { display: grid; grid-template-columns: 1.45fr 1fr; gap: 16px; margin-top: 16px; }
+.table-shell { overflow: hidden; padding: 0; }
+.toolbar { padding: 16px; border-bottom: 1px solid #202d44; }
+.search { width: min(360px, 100%); padding: 9px 12px; border: 1px solid #27354c; border-radius: 8px; background: #0a1221; color: white; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 14px 16px; border-bottom: 1px solid #1d293d; text-align: left; }
+th { color: #6f7c94; font-weight: 600; }
+td { color: #9eabc0; }
+@media (max-width: 950px) { .metrics { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .metrics { grid-template-columns: 1fr; } }
