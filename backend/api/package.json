@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@bug-agent/event-schema": "*",
+    "@bug-agent/playwright-generator": "*",
     "@fastify/cors": "^11.1.0",
     "@fastify/multipart": "^9.2.1",
     "fastify": "^5.6.0"

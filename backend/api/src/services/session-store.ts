@@ -5,6 +5,8 @@ import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ArtifactKind, EventBatch, SessionCompletionInput, SessionCreateInput } from "@bug-agent/event-schema";
 import type { ArtifactMetadata, RecordingSessionRecord, SessionEvidence } from "../domain/session.js";
+import type { ScriptExecution } from "../domain/session.js";
+import { PlaywrightGenerator } from "@bug-agent/playwright-generator";
 
 const validId = /^[a-zA-Z0-9-]{1,80}$/;
 const artifactFiles: Record<ArtifactKind, string> = {
@@ -15,6 +17,7 @@ const artifactFiles: Record<ArtifactKind, string> = {
 };
 
 export class SessionStore {
+  private readonly generator = new PlaywrightGenerator();
   constructor(private readonly rootDir: string) {}
 
   async create(input: SessionCreateInput): Promise<RecordingSessionRecord> {
@@ -55,10 +58,16 @@ export class SessionStore {
     const record = await this.read(id);
     const artifacts = await this.discoverVideo(id, record.artifacts);
     if (!artifacts.some((item) => item.kind === "video")) throw new Error("VIDEO_ARTIFACT_REQUIRED");
-    return this.update({ ...record, ...input, status: "completed", artifacts });
+    const source = this.generator.generate(record, await this.readEvents(id));
+    const now = new Date().toISOString();
+    await writeFile(join(this.directory(id), "reproduction.mjs"), source, "utf8");
+    return this.update({ ...record, ...input, status: "completed", artifacts, script: { language: "javascript", source, generatedAt: now, updatedAt: now } });
   }
 
-  async get(id: string): Promise<SessionEvidence> { const record = await this.read(id); return { ...record, events: await this.readEvents(id) }; }
+  async get(id: string): Promise<SessionEvidence> {
+    const record = await this.tryRead(id) ?? await this.migrateLegacyRecording(id);
+    return { ...record, events: await this.readEvents(id) };
+  }
 
   async openArtifact(id: string, kind: ArtifactKind) {
     this.assertId(id);
@@ -67,6 +76,52 @@ export class SessionStore {
     if (!artifact) throw Object.assign(new Error("ARTIFACT_NOT_FOUND"), { code: "ENOENT" });
     return { ...artifact, stream: createReadStream(join(this.directory(id), artifactFiles[kind])) };
   }
+  async openExecutionScreenshot(id: string) { this.assertId(id); const path = join(this.directory(id), "execution-final.png"); const file = await stat(path); return { size: file.size, stream: createReadStream(path) }; }
+
+  async replaceEvents(id: string, batch: EventBatch) {
+    const record = await this.read(id);
+    await this.writeJson(join(this.directory(id), "events.json"), batch.events);
+    const source = this.generator.generate(record, batch.events);
+    const now = new Date().toISOString();
+    await writeFile(join(this.directory(id), "reproduction.mjs"), source, "utf8");
+    return this.update({ ...record, eventCount: batch.events.length, script: { language: "javascript", source, generatedAt: now, updatedAt: now } });
+  }
+
+  async saveScript(id: string, source: string) {
+    if (!source.trim() || Buffer.byteLength(source) > 100_000) throw new Error("INVALID_SCRIPT");
+    const record = await this.read(id);
+    const now = new Date().toISOString();
+    await writeFile(join(this.directory(id), "reproduction.mjs"), source, "utf8");
+    return this.update({ ...record, script: { language: "javascript", source, generatedAt: record.script?.generatedAt ?? now, updatedAt: now } });
+  }
+
+  async regenerateScript(id: string) {
+    const record = await this.read(id);
+    const source = this.generator.generate(record, await this.readEvents(id));
+    const now = new Date().toISOString();
+    await writeFile(join(this.directory(id), "reproduction.mjs"), source, "utf8");
+    return this.update({ ...record, script: { language: "javascript", source, generatedAt: now, updatedAt: now } });
+  }
+
+  async deleteScript(id: string) {
+    const record = await this.read(id);
+    await Promise.all([
+      rm(join(this.directory(id), "reproduction.mjs"), { force: true }),
+      rm(join(this.directory(id), "execution-final.png"), { force: true }),
+    ]);
+    const { script: _script, lastExecution: _execution, ...remaining } = record;
+    return this.update(remaining);
+  }
+
+  async deleteSession(id: string) {
+    this.assertId(id);
+    await stat(this.directory(id));
+    await rm(this.directory(id), { recursive: true, force: false });
+  }
+
+  async saveExecution(id: string, execution: ScriptExecution) { const record = await this.read(id); return this.update({ ...record, lastExecution: execution }); }
+  scriptPath(id: string) { this.assertId(id); return join(this.directory(id), "reproduction.mjs"); }
+  executionDirectory(id: string) { this.assertId(id); return this.directory(id); }
 
   private async discoverVideo(id: string, artifacts: ArtifactMetadata[]) {
     if (artifacts.some((item) => item.kind === "video")) return artifacts;
@@ -74,6 +129,26 @@ export class SessionStore {
       const file = await stat(join(this.directory(id), "video.webm"));
       return [...artifacts, { kind: "video" as const, mimeType: "video/webm", size: file.size, path: `/api/v1/recordings/${id}/video`, createdAt: new Date().toISOString() }];
     } catch { return artifacts; }
+  }
+
+  private async migrateLegacyRecording(id: string): Promise<RecordingSessionRecord> {
+    this.assertId(id);
+    const directory = this.directory(id);
+    const metadata = JSON.parse(await readFile(join(directory, "metadata.json"), "utf8")) as { title?: string; pageUrl?: string; createdAt?: string };
+    const video = await stat(join(directory, "video.webm"));
+    const createdAt = metadata.createdAt ?? new Date(video.birthtimeMs).toISOString();
+    const startedAt = Date.parse(createdAt) || video.birthtimeMs;
+    const source = this.generator.generate({ pageUrl: metadata.pageUrl }, []);
+    const artifact: ArtifactMetadata = { kind: "video", mimeType: "video/webm", size: video.size, path: `/api/v1/recordings/${id}/video`, createdAt };
+    const record: RecordingSessionRecord = {
+      version: 1, id, status: "completed", startedAt, endedAt: startedAt,
+      title: metadata.title, pageUrl: metadata.pageUrl, eventCount: 0,
+      artifacts: [artifact], createdAt, updatedAt: new Date().toISOString(),
+      script: { language: "javascript", source, generatedAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    };
+    await writeFile(join(directory, "reproduction.mjs"), source, "utf8");
+    await this.write(record);
+    return record;
   }
 
   private async readEvents(id: string) { try { return JSON.parse(await readFile(join(this.directory(id), "events.json"), "utf8")); } catch { return []; } }

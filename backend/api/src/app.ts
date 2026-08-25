@@ -22,6 +22,7 @@ export async function createApp(
         origin.startsWith("chrome-extension://"),
       ),
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"],
   });
   await app.register(multipart, {
     limits: { files: 1, fileSize: 250 * 1024 * 1024 },

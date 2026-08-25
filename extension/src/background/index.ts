@@ -18,7 +18,7 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
         method,
         (params ?? {}) as Record<string, unknown>,
     );
-    if (event) events = [...events.slice(-999), event];
+    if (event) appendEvent(event);
 });
 chrome.debugger.onDetach.addListener((source) => {
     if (
@@ -40,15 +40,12 @@ chrome.runtime.onMessage.addListener(
         }
         if (message.type === "content/action") {
             if (session && _sender.tab?.id === session.tabId)
-                events = [
-                    ...events.slice(-999),
-                    {
+                appendEvent({
                         timestamp: message.action.timestamp,
                         source: "action",
                         type: message.action.type,
                         data: { url: message.action.url, target: message.action.target, value: message.action.value },
-                    },
-                ];
+                    });
             return false;
         }
         if (message.type === "recording/start") {
@@ -89,6 +86,7 @@ async function startRecording(tabId: number) {
             pageUrl: session.tabUrl,
             projectId: settings.projectId,
         });
+        await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ["content.js"] });
         await ensureOffscreenDocument();
         await chrome.debugger.attach(target(tabId), "1.3");
         await Promise.all([
@@ -196,4 +194,12 @@ function failure(error: unknown) {
         status: "error" as const,
         error: error instanceof Error ? error.message : String(error),
     };
+}
+function appendEvent(event: EvidenceEvent) {
+    const limit = 5000;
+    if (events.length < limit) { events.push(event); return; }
+    if (event.source !== "action") return;
+    const replaceIndex = events.findIndex((existing) => existing.source !== "action");
+    if (replaceIndex >= 0) events.splice(replaceIndex, 1);
+    events.push(event);
 }

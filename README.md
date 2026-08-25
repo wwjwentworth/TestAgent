@@ -81,3 +81,17 @@ GET  /api/v1/sessions/:sessionId
 ```
 
 当前 MVP 将 Session、事件和制品保存在 `backend/api/data/recordings/<sessionId>`；后续可由同一存储接口迁移到 PostgreSQL 与对象存储。
+
+录制完成时会同步生成 `reproduction.mjs`。测试报告和复现任务页面支持编辑脚本、编辑原始事件并重新生成，以及在受限 Playwright Worker 中运行脚本。Worker 默认调用 macOS 的 Google Chrome；其他环境通过 `CHROME_PATH` 指定 Chromium 可执行文件。
+
+可编辑与运行接口：
+
+```text
+PUT  /api/v1/sessions/:sessionId/events
+PUT  /api/v1/sessions/:sessionId/script
+DELETE /api/v1/sessions/:sessionId/script
+POST /api/v1/sessions/:sessionId/script/regenerate
+DELETE /api/v1/sessions/:sessionId
+POST /api/v1/sessions/:sessionId/script/run
+GET  /api/v1/sessions/:sessionId/execution-screenshot
+```

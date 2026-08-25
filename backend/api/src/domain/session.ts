@@ -22,8 +22,13 @@ export interface RecordingSessionRecord {
   artifacts: ArtifactMetadata[];
   createdAt: string;
   updatedAt: string;
+  script?: ReproductionScript;
+  lastExecution?: ScriptExecution;
 }
 
 export interface SessionEvidence extends RecordingSessionRecord {
   events: RecordedEvent[];
 }
+
+export interface ReproductionScript { language: "javascript"; source: string; generatedAt: string; updatedAt: string; }
+export interface ScriptExecution { id: string; status: "running" | "passed" | "failed" | "timed_out"; startedAt: string; finishedAt?: string; durationMs?: number; output?: string; error?: string; screenshotUrl?: string; }

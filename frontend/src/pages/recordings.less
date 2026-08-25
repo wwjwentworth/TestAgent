@@ -1,7 +1,7 @@
 @import '../styles/tokens.less';
 
-.recordings-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; }
-.recordings-list { padding: 12px; h2 { padding: 8px; margin-bottom: 8px; }
+.recordings-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); flex: 1; min-height: 0; gap: 16px; overflow: hidden; }
+.recordings-list { min-height: 0; padding: 12px; overflow-y: auto; overscroll-behavior: contain; h2 { padding: 8px; margin-bottom: 8px; }
   button { width: 100%; padding: 12px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: @text; text-align: left; cursor: pointer;
     &:hover, &.selected { border-color: #2a3a59; background: #17223a; }
     strong, span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -15,6 +15,20 @@
   > span { color: @text-muted; font-size: 12px; white-space: nowrap; }
 }
 .recording-player video { display: block; width: 100%; max-height: 680px; border-radius: 10px; background: #03060c; }
+.recording-content { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 16px; overflow-y: auto; overscroll-behavior: contain; }
+.task-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 11px 14px; border: 1px solid @border; border-radius: 9px; color: @text-muted; background: @bg-card; font-size: 12px;
+  > div:first-child { min-width: 0; span, strong { display: block; } strong { margin-top: 5px; color: #ffaaa5; font-weight: 500; } }
+}
+.panel-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 14px;
+  h2 { margin-bottom: 5px; } p { margin: 0; color: @text-muted; font-size: 12px; }
+}
+.editor-actions { display: flex; flex-wrap: wrap; gap: 8px; button:not(.ant-btn) { padding: 8px 12px; border: 1px solid #31415d; border-radius: 8px; color: @text; background: #152038; cursor: pointer; &:disabled { opacity: .55; cursor: wait; } } }
+.code-editor { box-sizing: border-box; width: 100%; min-height: 360px; resize: vertical; padding: 16px; border: 1px solid #253552; border-radius: 9px; outline: none; color: #d8e4ff; background: #070c16; font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; tab-size: 2; &:focus { border-color: @primary; } }
+.events-editor { min-height: 260px; color: #c8d5ec; }
+.editor-message { padding: 11px 14px; border: 1px solid; border-radius: 9px; font-size: 13px; &.error { border-color: fade(#ef6b6b, 40%); color: #ffaaa5; background: fade(#ef6b6b, 8%); } &.success { border-color: fade(@success, 40%); color: @success; background: fade(@success, 8%); } }
+.execution-status { padding: 5px 9px; border-radius: 999px; font-size: 11px; text-transform: uppercase; color: @warning; background: fade(@warning, 12%); &.passed { color: @success; background: fade(@success, 12%); } &.failed, &.timed_out { color: #ff8983; background: fade(#ef6b6b, 12%); } }
+.execution-result { pre { overflow: auto; padding: 12px; border-radius: 8px; color: #b8c5db; background: #070c16; white-space: pre-wrap; } img { display: block; width: 100%; margin-top: 14px; border: 1px solid @border; border-radius: 9px; } }
 .recordings-state { min-height: 260px; display: grid; place-content: center; gap: 8px; text-align: center; color: @text-muted; strong { color: @text; } }
 .recordings-error { color: #ef8e86; }
 @media (max-width: 900px) { .recordings-layout { grid-template-columns: 1fr; } .recordings-list { max-height: 260px; overflow-y: auto; } }
+@media (max-width: 720px) { .recordings-layout { display: grid; overflow: visible; } .recording-content { overflow: visible; } }

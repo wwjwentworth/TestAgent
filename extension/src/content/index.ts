@@ -1,24 +1,15 @@
 import type { ExtensionMessage } from "../domain/messages";
-for (const type of ["click", "input", "change"] as const) {
-  document.addEventListener(
-    type,
-    (event) => {
+const recorderWindow = window as Window & { __bugAgentRecorderInstalled?: boolean };
+if (!recorderWindow.__bugAgentRecorderInstalled) {
+  recorderWindow.__bugAgentRecorderInstalled = true;
+  for (const type of ["click", "input", "change"] as const) {
+    document.addEventListener(type, (event) => {
       const element = event.target instanceof Element ? event.target : null;
       if (!element) return;
-      const action: ExtensionMessage = {
-        type: "content/action",
-        action: {
-          timestamp: Date.now(),
-          type,
-          url: redactPageUrl(location.href),
-          target: describeElement(element),
-          value: inputValue(element),
-        },
-      };
+      const action: ExtensionMessage = { type: "content/action", action: { timestamp: Date.now(), type, url: redactPageUrl(location.href), target: describeElement(element), value: inputValue(element) } };
       void chrome.runtime.sendMessage(action).catch(() => undefined);
-    },
-    { capture: true },
-  );
+    }, { capture: true });
+  }
 }
 function inputValue(element: Element): string | undefined {
   if (element instanceof HTMLInputElement)
