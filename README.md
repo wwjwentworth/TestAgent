@@ -94,4 +94,21 @@ POST /api/v1/sessions/:sessionId/script/regenerate
 DELETE /api/v1/sessions/:sessionId
 POST /api/v1/sessions/:sessionId/script/run
 GET  /api/v1/sessions/:sessionId/execution-screenshot
+POST /api/v1/sessions/:sessionId/bug-analysis
 ```
+
+## LLM Bug 分析
+
+在复现任务中输入自然语言问题描述后，服务端会从 WebM 复现视频抽取关键帧，并结合起止截图、录制事件和运行结果生成结构化 Bug 报告。报告保存在对应 Session 中。
+
+默认 `LLM_PROVIDER=mock`，无需外部服务即可验证完整流程。使用 OpenAI Responses API 时，在 `.env` 中配置：
+
+```text
+LLM_PROVIDER=openai
+LLM_API_KEY=your_api_key
+LLM_MODEL=gpt-4o-mini
+```
+
+Provider 名称必须是 `openai`（不是 `openapi`）。修改 `.env` 后需要重启 API 服务；启动日志中的 `LLM configuration loaded` 会显示实际加载的 provider 和 model。
+
+视频关键帧提取需要 `ffmpeg`；可通过 `FFMPEG_PATH` 指定可执行文件。若 ffmpeg 不可用，分析仍会使用录制的起止截图和事件数据。

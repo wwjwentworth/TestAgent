@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ArtifactKind, EventBatch, SessionCompletionInput, SessionCreateInput } from "@bug-agent/event-schema";
-import type { ArtifactMetadata, RecordingSessionRecord, SessionEvidence } from "../domain/session.js";
+import type { ArtifactMetadata, BugReport, RecordingSessionRecord, SessionEvidence } from "../domain/session.js";
 import type { ScriptExecution } from "../domain/session.js";
 import { PlaywrightGenerator } from "@bug-agent/playwright-generator";
 
@@ -76,7 +76,16 @@ export class SessionStore {
     if (!artifact) throw Object.assign(new Error("ARTIFACT_NOT_FOUND"), { code: "ENOENT" });
     return { ...artifact, stream: createReadStream(join(this.directory(id), artifactFiles[kind])) };
   }
-  async openExecutionScreenshot(id: string) { this.assertId(id); const path = join(this.directory(id), "execution-final.png"); const file = await stat(path); return { size: file.size, stream: createReadStream(path) }; }
+  async openExecutionScreenshot(id: string, executionId?: string) {
+    this.assertId(id);
+    const record = await this.read(id);
+    const resolvedId = executionId ?? record.lastExecution?.id;
+    if (!resolvedId) throw Object.assign(new Error("EXECUTION_SCREENSHOT_NOT_FOUND"), { code: "ENOENT" });
+    this.assertId(resolvedId);
+    const path = join(this.directory(id), `execution-${resolvedId}.png`);
+    const file = await stat(path);
+    return { size: file.size, stream: createReadStream(path) };
+  }
 
   async replaceEvents(id: string, batch: EventBatch) {
     const record = await this.read(id);
@@ -109,7 +118,10 @@ export class SessionStore {
       rm(join(this.directory(id), "reproduction.mjs"), { force: true }),
       rm(join(this.directory(id), "execution-final.png"), { force: true }),
     ]);
-    const { script: _script, lastExecution: _execution, ...remaining } = record;
+    await Promise.all((record.executions ?? []).map((execution) =>
+      rm(join(this.directory(id), `execution-${execution.id}.png`), { force: true })
+    ));
+    const { script: _script, executions: _executions, lastExecution: _execution, ...remaining } = record;
     return this.update(remaining);
   }
 
@@ -119,7 +131,18 @@ export class SessionStore {
     await rm(this.directory(id), { recursive: true, force: false });
   }
 
-  async saveExecution(id: string, execution: ScriptExecution) { const record = await this.read(id); return this.update({ ...record, lastExecution: execution }); }
+  async saveExecution(id: string, execution: ScriptExecution) {
+    const record = await this.read(id);
+    const executions = record.executions ?? (record.lastExecution ? [record.lastExecution] : []);
+    const existingIndex = executions.findIndex((item) => item.id === execution.id);
+    const updatedExecutions = existingIndex === -1
+      ? [...executions, execution]
+      : executions.map((item, index) => index === existingIndex ? execution : item);
+    return this.update({ ...record, executions: updatedExecutions, lastExecution: execution });
+  }
+  async saveBugReport(id: string, bugReport: BugReport) { const record = await this.read(id); return this.update({ ...record, bugReport }); }
+  videoPath(id: string) { this.assertId(id); return join(this.directory(id), "video.webm"); }
+  artifactFilePath(id: string, kind: "start-screenshot" | "end-screenshot") { this.assertId(id); return join(this.directory(id), artifactFiles[kind]); }
   scriptPath(id: string) { this.assertId(id); return join(this.directory(id), "reproduction.mjs"); }
   executionDirectory(id: string) { this.assertId(id); return this.directory(id); }
 

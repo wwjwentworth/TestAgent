@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.mjs",
+  "exports": { ".": { "types": "./src/index.d.ts", "import": "./src/index.mjs" } },
   "scripts": { "build": "node ../../scripts/validate-files.mjs Agent/llm-gateway src/index.mjs" }
 }

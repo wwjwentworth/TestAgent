@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access, rm } from "node:fs/promises";
+import { access, rename, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import type { ScriptExecution } from "../domain/session.js";
 import type { SessionStore } from "./session-store.js";
@@ -19,12 +19,14 @@ export class ExecutionService {
     await rm(screenshotPath, { force: true });
     const outcome = await this.spawn(sessionId);
     const hasScreenshot = await access(screenshotPath).then(() => true).catch(() => false);
+    const archivedScreenshotPath = `${this.sessions.executionDirectory(sessionId)}/execution-${running.id}.png`;
+    if (hasScreenshot) await rename(screenshotPath, archivedScreenshotPath);
     const execution: ScriptExecution = {
       ...running,
       status: outcome.timedOut ? "timed_out" : outcome.code === 0 ? "passed" : "failed",
       finishedAt: new Date().toISOString(), durationMs: Date.now() - started,
       output: outcome.stdout.trim() || undefined, error: outcome.stderr.trim() || undefined,
-      screenshotUrl: hasScreenshot ? `/api/v1/sessions/${sessionId}/execution-screenshot` : undefined,
+      screenshotUrl: hasScreenshot ? `/api/v1/sessions/${sessionId}/executions/${running.id}/screenshot` : undefined,
     };
     await this.sessions.saveExecution(sessionId, execution);
     return execution;

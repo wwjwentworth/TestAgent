@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Modal } from "antd";
 import {
   absoluteApiUrl,
+  analyzeBug,
   deleteScript,
   deleteSession,
   getSession,
@@ -13,15 +14,18 @@ import {
   type Recording,
   type SessionDetail,
 } from "../api/recordings";
+import { formatDate } from "../utils/formatDate";
+import { formatBytes } from "../utils/formatBytes";
 
 export function RecordingsPage() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [selectedId, setSelectedId] = useState<string>();
   const [session, setSession] = useState<SessionDetail>();
   const [source, setSource] = useState("");
+  const [bugDescription, setBugDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<
-    "save" | "regenerate" | "run" | "delete" | "delete-task"
+    "save" | "regenerate" | "run" | "analyze" | "delete" | "delete-task"
   >();
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
@@ -56,6 +60,7 @@ export function RecordingsPage() {
   function syncSession(value: SessionDetail) {
     setSession(value);
     setSource(value.script?.source ?? "");
+    setBugDescription(value.bugReport?.description ?? "");
   }
   async function onSave() {
     if (!session) return;
@@ -96,6 +101,24 @@ export function RecordingsPage() {
           ? `运行通过（${execution.durationMs ?? 0} ms）`
           : `运行${execution.status}`,
       );
+    } catch (caught) {
+      showError(caught);
+    } finally {
+      setBusy(undefined);
+    }
+  }
+  async function onAnalyzeBug() {
+    if (!session || !bugDescription.trim()) return;
+    setBusy("analyze");
+    setError(undefined);
+    setMessage(undefined);
+    try {
+      const bugReport = await analyzeBug(session.id, bugDescription);
+      setSession((current) =>
+        current?.id === session.id ? { ...current, bugReport } : current,
+      );
+      setBugDescription(bugReport.description);
+      setMessage("Bug 分析完成，报告已生成");
     } catch (caught) {
       showError(caught);
     } finally {
@@ -207,26 +230,101 @@ export function RecordingsPage() {
           </div>
         )}
         <article className="card recording-player">
-            <div className="recording-heading">
-              <div>
-                <h2>{selected.title || "未命名录制"}</h2>
-                <p>{selected.pageUrl || selected.id}</p>
-              </div>
-              <span>{formatBytes(selected.size)}</span>
+          <div className="recording-heading">
+            <div>
+              <h2>{selected.title || "未命名录制"}</h2>
+              <p>{selected.pageUrl || selected.id}</p>
             </div>
-            <video
-              key={selected.id}
-              controls
-              preload="metadata"
-              src={recordingVideoUrl(selected)}
-            >
-              当前浏览器不支持 WebM 视频播放。
-            </video>
+            <span>{formatBytes(selected.size)}</span>
+          </div>
+          <video
+            key={selected.id}
+            controls
+            preload="metadata"
+            src={recordingVideoUrl(selected)}
+          >
+            当前浏览器不支持 WebM 视频播放。
+          </video>
         </article>
         {error && <div className="editor-message error">{error}</div>}
         {message && <div className="editor-message success">{message}</div>}
         {session && (
           <>
+            <article className="card bug-analysis-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>LLM 分析 Bug</h2>
+                  <p>输入问题描述，结合复现视频、关键帧和录制事件生成报告</p>
+                </div>
+              </div>
+              <textarea
+                value={bugDescription}
+                onChange={(event) => setBugDescription(event.target.value)}
+                placeholder="例如：点击提交订单后页面一直加载，没有跳转到支付页。"
+                maxLength={5000}
+                aria-label="Bug 问题描述"
+              />
+              <div className="bug-analysis-actions">
+                <span>{bugDescription.length}/5000</span>
+                <Button
+                  type="primary"
+                  onClick={onAnalyzeBug}
+                  loading={busy === "analyze"}
+                  disabled={Boolean(busy) || !bugDescription.trim()}
+                >
+                  {session.bugReport
+                    ? "重新分析并生成报告"
+                    : "分析并生成 Bug 报告"}
+                </Button>
+              </div>
+            </article>
+            {session.bugReport && (
+              <article className="card bug-report" key={session.bugReport.id}>
+                <div className="panel-heading">
+                  <div>
+                    <h2>{session.bugReport.title}</h2>
+                    <p>
+                      {formatDate(session.bugReport.generatedAt)} ·{" "}
+                      {session.bugReport.provider}/{session.bugReport.model} ·
+                      置信度 {Math.round(session.bugReport.confidence * 100)}%
+                    </p>
+                  </div>
+                  <span
+                    className={`bug-severity ${session.bugReport.severity}`}
+                  >
+                    {session.bugReport.severity}
+                  </span>
+                </div>
+                <ReportSection
+                  title="问题摘要"
+                  content={session.bugReport.summary}
+                />
+                <div className="bug-report-columns">
+                  <ReportSection
+                    title="预期行为"
+                    content={session.bugReport.expectedBehavior}
+                  />
+                  <ReportSection
+                    title="实际行为"
+                    content={session.bugReport.actualBehavior}
+                  />
+                </div>
+                <ReportSection
+                  title="可能原因"
+                  content={session.bugReport.probableCause}
+                />
+                <div className="bug-report-columns">
+                  <ReportList
+                    title="修复建议"
+                    items={session.bugReport.recommendations}
+                  />
+                  <ReportList
+                    title="分析证据"
+                    items={session.bugReport.evidence}
+                  />
+                </div>
+              </article>
+            )}
             <article className="card code-panel">
               <div className="panel-heading">
                 <div>
@@ -279,31 +377,50 @@ export function RecordingsPage() {
                 aria-label="Playwright 脚本"
               />
             </article>
-            {session.lastExecution && (
+            {(session.executions?.length || session.lastExecution) && (
               <article className="card execution-result">
                 <div className="panel-heading">
                   <div>
-                    <h2>最近运行结果</h2>
-                    <p>{session.lastExecution.durationMs ?? 0} ms</p>
+                    <h2>运行日志</h2>
+                    <p>共 {session.executions?.length ?? 1} 次运行</p>
                   </div>
-                  <span
-                    className={`execution-status ${session.lastExecution.status}`}
-                  >
-                    {session.lastExecution.status}
-                  </span>
                 </div>
-                {session.lastExecution.error && (
-                  <pre>{session.lastExecution.error}</pre>
-                )}
-                {session.lastExecution.output && (
-                  <pre>{session.lastExecution.output}</pre>
-                )}
-                {session.lastExecution.screenshotUrl && (
-                  <img
-                    src={absoluteApiUrl(session.lastExecution.screenshotUrl)}
-                    alt="脚本运行结束页面截图"
-                  />
-                )}
+                <div className="execution-list">
+                  {[...(session.executions ?? [session.lastExecution!])]
+                    .reverse()
+                    .map((execution) => (
+                      <section className="execution-entry" key={execution.id}>
+                        <div className="execution-entry-heading">
+                          <div>
+                            <strong>
+                              {new Date(execution.startedAt).toLocaleString(
+                                "zh-CN",
+                              )}
+                            </strong>
+                            <span>{execution.durationMs ?? 0} ms</span>
+                          </div>
+                          <span
+                            className={`execution-status ${execution.status}`}
+                          >
+                            {execution.status}
+                          </span>
+                        </div>
+                        {execution.error && <pre>{execution.error}</pre>}
+                        {execution.output && <pre>{execution.output}</pre>}
+                        {!execution.error && !execution.output && (
+                          <p className="execution-empty">
+                            本次运行没有输出日志
+                          </p>
+                        )}
+                        {execution.screenshotUrl && (
+                          <img
+                            src={absoluteApiUrl(execution.screenshotUrl)}
+                            alt={`${new Date(execution.startedAt).toLocaleString("zh-CN")} 运行结束页面截图`}
+                          />
+                        )}
+                      </section>
+                    ))}
+                </div>
               </article>
             )}
           </>
@@ -313,14 +430,31 @@ export function RecordingsPage() {
   );
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+function ReportSection({ title, content }: { title: string; content: string }) {
+  return (
+    <section className="report-section">
+      <h3>{title}</h3>
+      <p>{content}</p>
+    </section>
+  );
 }
-function formatBytes(value: number) {
-  return value < 1024 * 1024
-    ? `${(value / 1024).toFixed(1)} KB`
-    : `${(value / 1024 / 1024).toFixed(1)} MB`;
+
+function ReportList({
+  title,
+  items,
+  ordered = false,
+}: {
+  title: string;
+  items: string[];
+  ordered?: boolean;
+}) {
+  const children = items.map((item, index) => (
+    <li key={`${index}-${item}`}>{item.replace(/^\d+\.\s*/, "")}</li>
+  ));
+  return (
+    <section className="report-section">
+      <h3>{title}</h3>
+      {ordered ? <ol>{children}</ol> : <ul>{children}</ul>}
+    </section>
+  );
 }
